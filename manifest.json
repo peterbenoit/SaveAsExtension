@@ -2,7 +2,8 @@
     "update_url": "https://clients2.google.com/service/update2/crx",
 
     "name": "Save Image As...",
-    "description": "Adds options to save images in different formats (PNG, JPG, WEBP and AVIF).",
+    "description": "Adds options to save images in different formats (PNG, JPG, WEBP and AVIF if available).",
+    "author": "Rob Wu <rob@robwu.nl>, Peter Benoit <peterbenoit@gmail.com>",
     "version": "1.0.5",
     "manifest_version": 3,
     "background": {
