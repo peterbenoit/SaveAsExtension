@@ -54,7 +54,7 @@ This extension:
 ## Credits
 
 -   Originally based on [Save Image as PNG](https://chromewebstore.google.com/detail/save-image-as-png/) by Rob Wu
--   Modified by Peter Benoit to support multiple image formats
+-   Modified to support multiple image formats
 
 ## Version History
 
