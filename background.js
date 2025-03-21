@@ -1,97 +1,71 @@
 /**
  * (c) 2013 - 2024 Rob Wu <rob@robwu.nl>
+ * Original extension: https://chromewebstore.google.com/detail/save-image-as-png/
  * Modified by Peter Benoit (2025) <peterbenoit@gmail.com>
  **/
 
 'use strict';
 
-chrome.runtime.onInstalled.addListener(function () {
-    createContextMenu().catch((err) =>
-        console.error('Error in onInstalled createContextMenu:', err)
-    );
-});
+chrome.runtime.onInstalled.addListener(createContextMenu);
+chrome.runtime.onStartup.addListener(createContextMenu);
 
-chrome.runtime.onStartup.addListener(function () {
-    createContextMenu().catch((err) => console.error('Error in onStartup createContextMenu:', err));
-});
+// Create all menus unconditionally first
+function createContextMenu() {
+    chrome.contextMenus.removeAll(function () {
+        chrome.contextMenus.create({
+            id: 'save_image_parent',
+            title: 'Save Image As...',
+            contexts: ['image'],
+        });
 
-async function createContextMenu() {
+        chrome.contextMenus.create({
+            id: 'save_as_png',
+            parentId: 'save_image_parent',
+            title: 'PNG',
+            contexts: ['image'],
+        });
+
+        chrome.contextMenus.create({
+            id: 'save_as_jpg',
+            parentId: 'save_image_parent',
+            title: 'JPG',
+            contexts: ['image'],
+        });
+
+        chrome.contextMenus.create({
+            id: 'save_as_webp',
+            parentId: 'save_image_parent',
+            title: 'WEBP',
+            contexts: ['image'],
+        });
+
+        chrome.contextMenus.create({
+            id: 'save_as_avif',
+            parentId: 'save_image_parent',
+            title: 'AVIF',
+            contexts: ['image'],
+        });
+
+        // Check AVIF support after creating menus
+        checkAvifSupport();
+    });
+}
+
+// Check AVIF support and remove the menu item if not supported
+async function checkAvifSupport() {
     try {
-        // First check AVIF support
         const avifSupported = await checkAvifEncodingSupport();
-
-        // Then create the menu
-        chrome.contextMenus.removeAll(function () {
-            chrome.contextMenus.create({
-                id: 'save_image_parent',
-                title: 'Save Image As...',
-                contexts: ['image'],
-            });
-
-            chrome.contextMenus.create({
-                id: 'save_as_png',
-                parentId: 'save_image_parent',
-                title: 'PNG',
-                contexts: ['image'],
-            });
-
-            chrome.contextMenus.create({
-                id: 'save_as_jpg',
-                parentId: 'save_image_parent',
-                title: 'JPG',
-                contexts: ['image'],
-            });
-
-            chrome.contextMenus.create({
-                id: 'save_as_webp',
-                parentId: 'save_image_parent',
-                title: 'WEBP',
-                contexts: ['image'],
-            });
-
-            // Only add AVIF if supported
-            if (avifSupported) {
-                chrome.contextMenus.create({
-                    id: 'save_as_avif',
-                    parentId: 'save_image_parent',
-                    title: 'AVIF',
-                    contexts: ['image'],
-                });
-            }
-        });
+        if (!avifSupported) {
+            console.info('AVIF encoding not supported, removing menu option');
+            chrome.contextMenus.remove('save_as_avif');
+        }
     } catch (e) {
-        console.error('Error creating context menu:', e);
-        // If there's an error during AVIF check, create menu without AVIF option
-        chrome.contextMenus.removeAll(function () {
-            chrome.contextMenus.create({
-                id: 'save_image_parent',
-                title: 'Save Image As...',
-                contexts: ['image'],
-            });
-
-            chrome.contextMenus.create({
-                id: 'save_as_png',
-                parentId: 'save_image_parent',
-                title: 'PNG',
-                contexts: ['image'],
-            });
-
-            chrome.contextMenus.create({
-                id: 'save_as_jpg',
-                parentId: 'save_image_parent',
-                title: 'JPG',
-                contexts: ['image'],
-            });
-
-            chrome.contextMenus.create({
-                id: 'save_as_webp',
-                parentId: 'save_image_parent',
-                title: 'WEBP',
-                contexts: ['image'],
-            });
-        });
+        console.error('Error checking AVIF support:', e);
+        // If there's an error during check, remove the AVIF option to be safe
+        chrome.contextMenus.remove('save_as_avif');
     }
 }
+
 /**
  * Checks if the current environment supports encoding images in the AVIF format.
  *

@@ -1,5 +1,6 @@
 /**
  * (c) 2013 - 2024 Rob Wu <rob@robwu.nl>
+ * Original extension: https://chromewebstore.google.com/detail/save-image-as-png/
  * Modified by Peter Benoit (2025) <peterbenoit@gmail.com>
  **/
 
