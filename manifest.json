@@ -2,7 +2,6 @@
     "name": "Save Image As...",
     "description": "Adds options to save images in different formats (PNG, JPG, WEBP and AVIF if available).",
     "author": "Rob Wu <rob@robwu.nl>, Peter Benoit <peterbenoit@gmail.com>",
-    "original_extension": "https://chromewebstore.google.com/detail/save-image-as-png/",
     "version": "1.0.1",
     "manifest_version": 3,
     "background": {
