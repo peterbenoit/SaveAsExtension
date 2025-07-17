@@ -1,19 +1,27 @@
 {
-    "name": "Save Image As...",
-    "description": "Adds options to save images in different formats (PNG, JPG, WEBP and AVIF if available).",
-    "author": "Rob Wu <rob@robwu.nl>, Peter Benoit <peterbenoit@gmail.com>",
-    "version": "1.0.1",
-    "manifest_version": 3,
-    "background": {
-        "service_worker": "background.js"
-    },
-    "icons": {
-        "16": "img/icon16.png",
-        "48": "img/icon48.png",
-        "128": "img/icon128.png"
-    },
-    "permissions": ["activeTab", "contextMenus", "downloads", "offscreen", "scripting"],
-    "host_permissions": ["<all_urls>"],
-    "incognito": "split",
-    "minimum_chrome_version": "106"
+	"name": "Save Image As...",
+	"description": "Adds options to save images in different formats (PNG, JPG, WEBP, AVIF and GIF).",
+	"author": "Rob Wu <rob@robwu.nl>, Peter Benoit <peterbenoit@gmail.com>",
+	"version": "1.0.1",
+	"manifest_version": 3,
+	"background": {
+		"service_worker": "background.js"
+	},
+	"icons": {
+		"16": "img/icon16.png",
+		"48": "img/icon48.png",
+		"128": "img/icon128.png"
+	},
+	"permissions": [
+		"activeTab",
+		"contextMenus",
+		"downloads",
+		"offscreen",
+		"scripting"
+	],
+	"host_permissions": [
+		"<all_urls>"
+	],
+	"incognito": "split",
+	"minimum_chrome_version": "106"
 }
