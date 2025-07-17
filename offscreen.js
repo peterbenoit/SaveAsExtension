@@ -124,49 +124,72 @@ messageHandlers.set('decodeBlobAsFormat', async function (data) {
 
 // New handler for creating a blob URL without conversion
 messageHandlers.set('createBlobURL', async function (blob) {
-	// The blob URL is created here and will be valid as long as the offscreen
-	// document is alive. It should be revoked eventually, but for a single
-	// download, this is acceptable. The service worker will use this URL
-	// to initiate the download.
-	return { blobUrl: URL.createObjectURL(blob) };
+	console.log(`[OFFSCREEN] Received blob for URL creation: ${blob.size} bytes, type: ${blob.type}`);
+	try {
+		const blobUrl = URL.createObjectURL(blob);
+		console.log(`[OFFSCREEN] Created blob URL: ${blobUrl.slice(0, 100)}...`);
+		// Note: This URL is intentionally not revoked immediately.
+		// It will be valid until the offscreen document is closed.
+		return { blobUrl };
+	} catch (e) {
+		console.error('[OFFSCREEN] Error creating blob URL:', e);
+		return null;
+	}
 });
 
 // PDF conversion handler
-messageHandlers.set('convertToPDF', async function (data) {
-	const { imageDataUrl } = data;
+messageHandlers.set('createPDFFromBlob', async function (blob) {
+	console.log(`[OFFSCREEN] Received blob for PDF creation: ${blob.size} bytes, type: ${blob.type}`);
+	const blobUrl = URL.createObjectURL(blob);
 	try {
+		if (!window.jspdf || !window.jspdf.jsPDF) {
+			console.error('[OFFSCREEN] jsPDF library not found on window object.');
+			throw new Error('jsPDF library not loaded.');
+		}
+		console.log('[OFFSCREEN] jsPDF library loaded.');
 		const { jsPDF } = window.jspdf;
-		const doc = new jsPDF();
 		const img = document.createElement('img');
-		img.src = imageDataUrl;
-		await img.decode();
 
-		const pageWidth = doc.internal.pageSize.getWidth();
-		const pageHeight = doc.internal.pageSize.getHeight();
+		console.log('[OFFSCREEN] Waiting for image to load...');
+		await new Promise((resolve, reject) => {
+			img.onload = () => {
+				console.log('[OFFSCREEN] Image onload event fired.');
+				resolve();
+			};
+			img.onerror = (err) => {
+				console.error('[OFFSCREEN] Image onerror event fired:', err);
+				reject(new Error('Image failed to load from blob URL.'));
+			};
+			img.src = blobUrl;
+		});
+		console.log(`[OFFSCREEN] Image loaded: ${img.naturalWidth}x${img.naturalHeight}`);
 
-		let imgWidth = img.naturalWidth;
-		let imgHeight = img.naturalHeight;
-
-		const aspectRatio = imgWidth / imgHeight;
-
-		if (imgWidth > pageWidth) {
-			imgWidth = pageWidth;
-			imgHeight = imgWidth / aspectRatio;
+		const imageType = blob.type.split('/')[1]?.toUpperCase();
+		const supportedFormats = ['JPEG', 'JPG', 'PNG', 'WEBP'];
+		console.log(`[OFFSCREEN] Detected image type: ${imageType}`);
+		if (!imageType || !supportedFormats.includes(imageType)) {
+			throw new Error(`Unsupported image type for PDF conversion: ${blob.type}`);
 		}
 
-		if (imgHeight > pageHeight) {
-			imgHeight = pageHeight;
-			imgWidth = imgHeight * aspectRatio;
-		}
+		const orientation = img.naturalWidth > img.naturalHeight ? 'l' : 'p';
+		console.log(`[OFFSCREEN] Creating PDF with orientation: ${orientation}`);
+		const doc = new jsPDF({
+			orientation: orientation,
+			unit: 'px',
+			format: [img.naturalWidth, img.naturalHeight],
+		});
 
-		const x = (pageWidth - imgWidth) / 2;
-		const y = (pageHeight - imgHeight) / 2;
-
-		doc.addImage(imageDataUrl, 'PNG', x, y, imgWidth, imgHeight);
+		console.log('[OFFSCREEN] Adding image to PDF document...');
+		doc.addImage(img, imageType, 0, 0, img.naturalWidth, img.naturalHeight);
+		console.log('[OFFSCREEN] Generating PDF data URL...');
 		const pdfDataUrl = doc.output('datauristring');
+		console.log(`[OFFSCREEN] PDF Data URL created (length: ${pdfDataUrl.length}). Returning to background script.`);
 		return { pdfDataUrl };
 	} catch (e) {
-		console.error('Error creating PDF with jsPDF:', e);
+		console.error('[OFFSCREEN] Error creating PDF with jsPDF:', e);
 		return null;
+	} finally {
+		console.log(`[OFFSCREEN] Revoking blob URL: ${blobUrl.slice(0, 100)}...`);
+		URL.revokeObjectURL(blobUrl);
 	}
 });

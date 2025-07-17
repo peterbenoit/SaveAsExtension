@@ -192,14 +192,11 @@ async function downloadImageForFrame(srcUrl, tabId, frameId, format) {
 		// This is a common pattern on sites like Giphy.
 		if (srcUrl.endsWith('.webp')) {
 			fetchUrl = srcUrl.replace(/\.webp$/, '.gif');
-			console.info(`Source is WEBP, attempting to fetch GIF version at: ${fetchUrl}`);
+			console.log(`[BACKGROUND] Source is WEBP, attempting to fetch GIF version at: ${fetchUrl}`);
 		}
 
 		try {
-			console.info(
-				'GIF requested: fetching with explicit Accept header to preserve animation'
-			);
-			// Fetch the image, explicitly asking for GIF format to avoid server-side conversion to WEBP.
+			console.log(`[BACKGROUND] Fetching GIF from: ${fetchUrl}`);
 			const response = await fetch(fetchUrl, {
 				headers: {
 					Accept: 'image/gif',
@@ -207,27 +204,26 @@ async function downloadImageForFrame(srcUrl, tabId, frameId, format) {
 			});
 
 			if (!response.ok) {
-				throw new Error(`Failed to fetch GIF: ${response.statusText}`);
+				throw new Error(`[BACKGROUND] Failed to fetch GIF: ${response.statusText}`);
 			}
 
 			const blob = await response.blob();
+			console.log(`[BACKGROUND] Fetched GIF blob: ${blob.size} bytes, type: ${blob.type}`);
 
-			// Pass blob to offscreen document to get a URL
+			console.log('[BACKGROUND] Querying offscreen to create blob URL...');
 			const result = await queryOffscreenClient('createBlobURL', blob);
 
 			if (result && result.blobUrl) {
+				console.log(`[BACKGROUND] Received blob URL: ${result.blobUrl.slice(0, 100)}...`);
 				await download(result.blobUrl, filename);
-				console.info('Successfully initiated download for GIF from blob URL.');
-				// The blob URL will be revoked when the offscreen document closes.
+				console.log('[BACKGROUND] Successfully initiated download for GIF.');
 			} else {
-				throw new Error('Failed to create blob URL in offscreen document.');
+				throw new Error('[BACKGROUND] Failed to create blob URL in offscreen document.');
 			}
 			return;
 		} catch (e) {
-			console.info(
-				'Fetch-based GIF download failed, falling back to canvas conversion:',
-				e.message
-			);
+			console.error('[BACKGROUND] GIF download failed:', e.message);
+			console.info('[BACKGROUND] Falling back to canvas conversion...');
 			// If fetch fails, continue to the generic conversion logic below.
 		}
 	}
@@ -235,27 +231,31 @@ async function downloadImageForFrame(srcUrl, tabId, frameId, format) {
 	// Special handling for PDF format
 	if (format === 'pdf') {
 		try {
-			console.info('Creating PDF from image');
-			// Fetch the image as PNG first for best quality
-			let { imageUrl, errorMessage } = await fetchImage(srcUrl, 'png');
-			if (imageUrl) {
-				let response = await queryOffscreenClient('convertToPDF', {
-					imageDataUrl: imageUrl,
-				});
-				if (response && response.pdfDataUrl) {
-					await download(response.pdfDataUrl, filename);
-					console.info('Successfully created and downloaded PDF');
-					return;
-				}
+			console.log(`[BACKGROUND] Starting PDF creation for URL: ${srcUrl}`);
+			const response = await fetch(srcUrl);
+			if (!response.ok) {
+				throw new Error(`[BACKGROUND] Failed to fetch image for PDF: ${response.statusText}`);
 			}
-			console.warn('PDF creation failed:', errorMessage);
+			const blob = await response.blob();
+			console.log(`[BACKGROUND] Fetched image blob for PDF: ${blob.size} bytes, type: ${blob.type}`);
+
+			console.log('[BACKGROUND] Querying offscreen to create PDF...');
+			let result = await queryOffscreenClient('createPDFFromBlob', blob);
+
+			if (result && result.pdfDataUrl) {
+				console.log(`[BACKGROUND] Received PDF Data URL (length: ${result.pdfDataUrl.length}). Initiating download...`);
+				await download(result.pdfDataUrl, filename);
+				console.log('[BACKGROUND] Successfully created and downloaded PDF.');
+				return;
+			} else {
+				throw new Error('[BACKGROUND] Failed to create PDF in offscreen document. Response was null or invalid.');
+			}
 		} catch (e) {
-			console.info('PDF creation error:', e.message);
+			console.error('[BACKGROUND] PDF creation failed:', e.message);
+			console.info('[BACKGROUND] Falling back to PNG format...');
+			format = 'png';
+			filename = getFileNameFromURL(srcUrl, 'png');
 		}
-		// Fall back to PNG if PDF creation fails
-		console.info('Falling back to PNG format');
-		format = 'png';
-		filename = getFileNameFromURL(srcUrl, 'png');
 	}
 
 	// Try to fetch the image in the context of the frame first, because that
@@ -609,6 +609,17 @@ async function ensureOffscreenClient() {
 	return await getOffscreenClient();
 }
 
+const offscreenRequests = new Map();
+
+self.addEventListener('message', (event) => {
+	const { messageId, response } = event.data;
+	if (offscreenRequests.has(messageId)) {
+		const { resolve } = offscreenRequests.get(messageId);
+		resolve(response);
+		offscreenRequests.delete(messageId);
+	}
+});
+
 /**
  * @param {string} type
  * @param {*} data
@@ -621,15 +632,10 @@ async function queryOffscreenClient(type, data) {
 		return null;
 	}
 	const messageId = crypto.randomUUID();
-	const responsePromise = new Promise((resolve) => {
-		function listener(event) {
-			if (event.origin === origin && event.data.messageId === messageId) {
-				resolve(event.data.response);
-				self.removeEventListener('message', listener);
-			}
-		}
-		self.addEventListener('message', listener);
+	const responsePromise = new Promise((resolve, reject) => {
+		offscreenRequests.set(messageId, { resolve, reject });
 	});
+
 	client.postMessage({ messageId, type, data });
 	return responsePromise;
 }
