@@ -53,6 +53,13 @@ function createContextMenu() {
 			contexts: ['image'],
 		});
 
+		chrome.contextMenus.create({
+			id: 'save_as_pdf',
+			parentId: 'save_image_parent',
+			title: 'PDF',
+			contexts: ['image'],
+		});
+
 		// Check AVIF support after creating menus
 		checkAvifSupport();
 	});
@@ -116,28 +123,37 @@ async function checkAvifEncodingSupport() {
 function getFileNameFromURL(url, extension) {
 	var reURI = /^(?:([^:]+:)?\/\/[^/]+)?([^?#]*)(\?[^#]*)?(#.*)?$/;
 	//            SCHEME      HOST         1.PATH  2.QUERY   3.REF
-	// Pattern to get first matching NAME.ext
-	var reFilename = /[^/?#=]+(?=\.[a-z0-9]{3,4}\b)/i;
+	// Pattern to get the filename without extension from the path
+	var reFilename = /([^/?#=]+?)(?:\.[a-z0-9]{2,4})?$/i;
 	var splitURI = reURI.exec(url);
-	var suggestedFilename =
-		reFilename.exec(splitURI[1]) ||
-		reFilename.exec(splitURI[2]) ||
-		reFilename.exec(splitURI[3]);
+	var path = splitURI[2] || '';
+
+	// Extract just the filename part from the path
+	var pathParts = path.split('/');
+	var lastPart = pathParts[pathParts.length - 1];
+
+	var suggestedFilename;
+	if (lastPart) {
+		var match = reFilename.exec(lastPart);
+		if (match) {
+			suggestedFilename = match[1];
+		}
+	}
+
 	if (suggestedFilename) {
-		suggestedFilename = suggestedFilename[0];
 		if (suggestedFilename.indexOf('%') != -1) {
 			// URL-encoded %2Fpath%2Fto%2Ffile.png should be file.png
 			try {
-				suggestedFilename = reFilename.exec(decodeURIComponent(suggestedFilename))[0];
+				suggestedFilename = decodeURIComponent(suggestedFilename);
 			} catch (e) {
-				// Possible (extremely rare) errors:
-				// URIError "Malformed URI", e.g. for "%AA.png"
-				// TypeError "null has no properties", e.g. for "%2F.png"
+				// Keep original if decoding fails
 			}
 			// The downloads API implementation is going to normalize anyway,
 			// let's do it ourselves to emphasize that this happens.
 			suggestedFilename = suggestedFilename.replaceAll('%', '_');
 		}
+		// Clean up the filename - remove any remaining extensions
+		suggestedFilename = suggestedFilename.replace(/\.[a-z0-9]{2,4}$/i, '');
 		suggestedFilename += '.' + extension;
 	}
 	return suggestedFilename || 'image.' + extension;
@@ -155,7 +171,9 @@ chrome.contextMenus.onClicked.addListener(function (info, tab) {
 						? 'avif'
 						: info.menuItemId === 'save_as_gif'
 							? 'gif'
-							: null;
+							: info.menuItemId === 'save_as_pdf'
+								? 'pdf'
+								: null;
 
 	if (format) {
 		downloadImageForFrame(info.srcUrl, tab.id, tab.frameId, format);
@@ -165,24 +183,79 @@ chrome.contextMenus.onClicked.addListener(function (info, tab) {
 async function downloadImageForFrame(srcUrl, tabId, frameId, format) {
 	let filename = getFileNameFromURL(srcUrl, format);
 
+	console.info(`Download request: ${format} format for URL: ${srcUrl}`);
+
 	// Special handling for GIF format
 	if (format === 'gif') {
-		// Check if the source is already a GIF by URL or content type
-		const isLikelyGif = srcUrl.toLowerCase().includes('.gif') ||
-			srcUrl.toLowerCase().includes('gif') ||
-			srcUrl.toLowerCase().match(/\.(gif)(\?|$)/i);
-
-		if (isLikelyGif) {
-			// For GIFs, try to download the original to preserve animation
-			try {
-				await download(srcUrl, filename);
-				console.info('Downloaded original GIF to preserve animation');
-				return;
-			} catch (e) {
-				// If direct download fails, fall through to conversion logic
-				console.info('Direct GIF download failed, attempting conversion:', e.message);
-			}
+		let fetchUrl = srcUrl;
+		// If the source is a WEBP, try to get the GIF version instead.
+		// This is a common pattern on sites like Giphy.
+		if (srcUrl.endsWith('.webp')) {
+			fetchUrl = srcUrl.replace(/\.webp$/, '.gif');
+			console.info(`Source is WEBP, attempting to fetch GIF version at: ${fetchUrl}`);
 		}
+
+		try {
+			console.info(
+				'GIF requested: fetching with explicit Accept header to preserve animation'
+			);
+			// Fetch the image, explicitly asking for GIF format to avoid server-side conversion to WEBP.
+			const response = await fetch(fetchUrl, {
+				headers: {
+					Accept: 'image/gif',
+				},
+			});
+
+			if (!response.ok) {
+				throw new Error(`Failed to fetch GIF: ${response.statusText}`);
+			}
+
+			const blob = await response.blob();
+
+			// Pass blob to offscreen document to get a URL
+			const result = await queryOffscreenClient('createBlobURL', blob);
+
+			if (result && result.blobUrl) {
+				await download(result.blobUrl, filename);
+				console.info('Successfully initiated download for GIF from blob URL.');
+				// The blob URL will be revoked when the offscreen document closes.
+			} else {
+				throw new Error('Failed to create blob URL in offscreen document.');
+			}
+			return;
+		} catch (e) {
+			console.info(
+				'Fetch-based GIF download failed, falling back to canvas conversion:',
+				e.message
+			);
+			// If fetch fails, continue to the generic conversion logic below.
+		}
+	}
+
+	// Special handling for PDF format
+	if (format === 'pdf') {
+		try {
+			console.info('Creating PDF from image');
+			// Fetch the image as PNG first for best quality
+			let { imageUrl, errorMessage } = await fetchImage(srcUrl, 'png');
+			if (imageUrl) {
+				let response = await queryOffscreenClient('convertToPDF', {
+					imageDataUrl: imageUrl,
+				});
+				if (response && response.pdfDataUrl) {
+					await download(response.pdfDataUrl, filename);
+					console.info('Successfully created and downloaded PDF');
+					return;
+				}
+			}
+			console.warn('PDF creation failed:', errorMessage);
+		} catch (e) {
+			console.info('PDF creation error:', e.message);
+		}
+		// Fall back to PNG if PDF creation fails
+		console.info('Falling back to PNG format');
+		format = 'png';
+		filename = getFileNameFromURL(srcUrl, 'png');
 	}
 
 	// Try to fetch the image in the context of the frame first, because that
@@ -423,9 +496,9 @@ async function convertBlobToURL(blob, format) {
 		mimeType = 'image/webp';
 		quality = 0.9;
 	} else if (format === 'gif') {
-		// Most browsers don't support GIF encoding via canvas
-		// We'll fall back to PNG for the conversion
-		console.info('Converting to PNG format since GIF encoding is not supported by canvas');
+		// For GIF format, always use PNG since canvas can't encode GIF
+		// The filename will still be .gif but content will be PNG
+		console.info('Converting to PNG content with GIF filename (canvas limitation)');
 		mimeType = 'image/png';
 		quality = undefined;
 	} else if (format === 'avif') {
@@ -479,6 +552,8 @@ async function convertBlobToURL(blob, format) {
 		return { imageUrl: fr.result };
 	}
 }
+
+
 
 async function download(url, filename) {
 	try {

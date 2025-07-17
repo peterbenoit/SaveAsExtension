@@ -1,8 +1,8 @@
 {
 	"name": "Save Image As...",
-	"description": "Adds options to save images in different formats (PNG, JPG, WEBP, AVIF and GIF).",
+	"description": "Adds options to save images in different formats (PNG, JPG, WEBP, AVIF, GIF and PDF).",
 	"author": "Rob Wu <rob@robwu.nl>, Peter Benoit <peterbenoit@gmail.com>",
-	"version": "1.0.2",
+	"version": "1.1.0",
 	"manifest_version": 3,
 	"background": {
 		"service_worker": "background.js"
@@ -23,5 +23,15 @@
 		"<all_urls>"
 	],
 	"incognito": "split",
-	"minimum_chrome_version": "106"
+	"minimum_chrome_version": "106",
+	"web_accessible_resources": [
+		{
+			"resources": [
+				"lib/jspdf.umd.min.js"
+			],
+			"matches": [
+				"<all_urls>"
+			]
+		}
+	]
 }
