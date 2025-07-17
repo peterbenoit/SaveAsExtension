@@ -2,7 +2,7 @@
 	"name": "Save Image As...",
 	"description": "Adds options to save images in different formats (PNG, JPG, WEBP, AVIF and GIF).",
 	"author": "Rob Wu <rob@robwu.nl>, Peter Benoit <peterbenoit@gmail.com>",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"manifest_version": 3,
 	"background": {
 		"service_worker": "background.js"
