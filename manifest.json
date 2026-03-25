@@ -23,15 +23,5 @@
 		"<all_urls>"
 	],
 	"incognito": "split",
-	"minimum_chrome_version": "106",
-	"web_accessible_resources": [
-		{
-			"resources": [
-				"lib/jspdf.umd.min.js"
-			],
-			"matches": [
-				"<all_urls>"
-			]
-		}
-	]
+	"minimum_chrome_version": "109",
 }

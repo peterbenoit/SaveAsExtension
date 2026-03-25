@@ -7,6 +7,7 @@
 'use strict';
 
 const KEEP_ALIVE_TIMEOUT_MS = 30_000;
+const MAX_PDF_DIMENSION = 16_000;
 let count = 0;
 let timer;
 function increaseKeepAliveCount() {
@@ -72,6 +73,19 @@ messageHandlers.set('decodeBlobAsPNG', async function (blob) {
 });
 
 // New handler for different formats
+async function checkAvifEncodingSupport() {
+	try {
+		const canvas = document.createElement('canvas');
+		canvas.width = 2;
+		canvas.height = 2;
+		const testDataUrl = canvas.toDataURL('image/avif');
+		return testDataUrl.startsWith('data:image/avif');
+	} catch (e) {
+		return false;
+	}
+}
+
+// New handler for different formats
 messageHandlers.set('decodeBlobAsFormat', async function (data) {
 	const { blob, format } = data;
 	const blobUrl = URL.createObjectURL(blob);
@@ -91,25 +105,14 @@ messageHandlers.set('decodeBlobAsFormat', async function (data) {
 
 		let imageUrl;
 		if (format === 'jpg') {
-			imageUrl = canvas.toDataURL('image/jpeg', 1.0);
+			imageUrl = canvas.toDataURL('image/jpeg', 0.92);
 		} else if (format === 'webp') {
 			imageUrl = canvas.toDataURL('image/webp', 0.9);
 		} else if (format === 'avif') {
-			try {
-				// Test AVIF support
-				const testDataUrl = canvas.toDataURL('image/avif', 0.8);
-				if (testDataUrl.startsWith('data:image/avif')) {
-					// AVIF is properly supported
-					imageUrl = testDataUrl;
-				} else {
-					console.warn('Browser silently converted AVIF to another format');
-					imageUrl = canvas.toDataURL('image/png');
-				}
-			} catch (e) {
-				console.warn(
-					'AVIF format not supported in offscreen document, falling back to PNG:',
-					e
-				);
+			if (await checkAvifEncodingSupport()) {
+				imageUrl = canvas.toDataURL('image/avif', 0.8);
+			} else {
+				console.warn('AVIF not supported in offscreen document, falling back to PNG');
 				imageUrl = canvas.toDataURL('image/png');
 			}
 		} else {
@@ -163,6 +166,12 @@ messageHandlers.set('createPDFFromBlob', async function (blob) {
 			img.src = blobUrl;
 		});
 		console.log(`[OFFSCREEN] Image loaded: ${img.naturalWidth}x${img.naturalHeight}`);
+
+		if (img.naturalWidth > MAX_PDF_DIMENSION || img.naturalHeight > MAX_PDF_DIMENSION) {
+			throw new Error(
+				`Image dimensions (${img.naturalWidth}x${img.naturalHeight}) exceed the maximum allowed for PDF conversion (${MAX_PDF_DIMENSION}px).`
+			);
+		}
 
 		const imageType = blob.type.split('/')[1]?.toUpperCase();
 		const supportedFormats = ['JPEG', 'JPG', 'PNG', 'WEBP'];

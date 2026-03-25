@@ -49,7 +49,7 @@ function createContextMenu() {
 		chrome.contextMenus.create({
 			id: 'save_as_gif',
 			parentId: 'save_image_parent',
-			title: 'GIF',
+			title: 'GIF (static)',
 			contexts: ['image'],
 		});
 
@@ -159,25 +159,21 @@ function getFileNameFromURL(url, extension) {
 	return suggestedFilename || 'image.' + extension;
 }
 
-chrome.contextMenus.onClicked.addListener(function (info, tab) {
-	const format =
-		info.menuItemId === 'save_as_png'
-			? 'png'
-			: info.menuItemId === 'save_as_jpg'
-				? 'jpg'
-				: info.menuItemId === 'save_as_webp'
-					? 'webp'
-					: info.menuItemId === 'save_as_avif'
-						? 'avif'
-						: info.menuItemId === 'save_as_gif'
-							? 'gif'
-							: info.menuItemId === 'save_as_pdf'
-								? 'pdf'
-								: null;
+const ALLOWED_FORMATS = new Set(['png', 'jpg', 'webp', 'avif', 'gif', 'pdf']);
 
-	if (format) {
-		downloadImageForFrame(info.srcUrl, tab.id, tab.frameId, format);
+chrome.contextMenus.onClicked.addListener(function (info, tab) {
+	if (!info.menuItemId.startsWith('save_as_')) {
+		return;
 	}
+
+	const format = info.menuItemId.split('_as_')[1];
+
+	if (!ALLOWED_FORMATS.has(format)) {
+		console.error('Unknown format requested:', format);
+		return;
+	}
+
+	downloadImageForFrame(info.srcUrl, tab.id, tab.frameId, format);
 });
 
 async function downloadImageForFrame(srcUrl, tabId, frameId, format) {
@@ -339,7 +335,7 @@ async function fetchImageInFrame(srcUrl, tabId, frameId, format) {
 
 			let imageUrl;
 			if (format === 'jpg') {
-				imageUrl = canvas.toDataURL('image/jpeg', 1.0);
+				imageUrl = canvas.toDataURL('image/jpeg', 0.92);
 			} else if (format === 'webp') {
 				imageUrl = canvas.toDataURL('image/webp', 0.9);
 			} else if (format === 'gif') {
@@ -402,6 +398,7 @@ async function fetchImageInFrame(srcUrl, tabId, frameId, format) {
 		}
 		// Note: content scripts are unaffected by the page's image-src CSP.
 		let img = document.createElement('img');
+		img.crossOrigin = 'anonymous';
 		img.src = url;
 		try {
 			await img.decode();
@@ -491,7 +488,7 @@ async function convertBlobToURL(blob, format) {
 
 	if (format === 'jpg') {
 		mimeType = 'image/jpeg';
-		quality = 1.0;
+		quality = 0.92;
 	} else if (format === 'webp') {
 		mimeType = 'image/webp';
 		quality = 0.9;
