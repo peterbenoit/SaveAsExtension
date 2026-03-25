@@ -202,3 +202,8 @@ messageHandlers.set('createPDFFromBlob', async function (blob) {
 		URL.revokeObjectURL(blobUrl);
 	}
 });
+
+// Export internals for unit testing (no-op in browser / extension context)
+if (typeof module !== 'undefined') {
+	module.exports = { checkAvifEncodingSupport, messageHandlers, MAX_PDF_DIMENSION };
+}

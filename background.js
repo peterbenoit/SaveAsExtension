@@ -636,3 +636,8 @@ async function queryOffscreenClient(type, data) {
 	client.postMessage({ messageId, type, data });
 	return responsePromise;
 }
+
+// Export pure functions for unit testing (no-op in browser / extension context)
+if (typeof module !== 'undefined') {
+	module.exports = { getFileNameFromURL, ALLOWED_FORMATS, checkAvifEncodingSupport, convertBlobToURL };
+}

@@ -1,0 +1,12 @@
+{
+	"name": "save-image-as",
+	"version": "1.1.0",
+	"description": "Save Image As Chrome Extension",
+	"scripts": {
+		"test": "jest",
+		"test:coverage": "jest --coverage"
+	},
+	"devDependencies": {
+		"jest": "^29.7.0"
+	}
+}
