@@ -1,10 +1,13 @@
 {
 	"name": "save-image-as",
-	"version": "1.1.0",
+	"version": "1.1.1",
 	"description": "Save Image As Chrome Extension",
+	"private": true,
+	"license": "MIT",
 	"scripts": {
 		"test": "jest",
-		"test:coverage": "jest --coverage"
+		"test:coverage": "jest --coverage",
+		"package": "chmod +x package.sh && ./package.sh"
 	},
 	"devDependencies": {
 		"jest": "^29.7.0"
