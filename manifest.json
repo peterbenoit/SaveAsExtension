@@ -1,6 +1,6 @@
 {
 	"name": "Save Image As...",
-	"description": "Adds options to save images in different formats (PNG, JPG, WEBP, AVIF, GIF and PDF).",
+	"description": "Right-click any image to save it in your preferred format — lossless, compressed, modern, or as a PDF.",
 	"author": "Rob Wu <rob@robwu.nl>, Peter Benoit <peterbenoit@gmail.com>",
 	"version": "1.1.0",
 	"manifest_version": 3,
