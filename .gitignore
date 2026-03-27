@@ -4,3 +4,4 @@ package/
 issues/
 BACKLOG.md
 node_modules/
+*.txt
