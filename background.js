@@ -9,56 +9,31 @@
 chrome.runtime.onInstalled.addListener(createContextMenu);
 chrome.runtime.onStartup.addListener(createContextMenu);
 
+const CONTEXT_MENU_ITEMS = [
+	{ id: 'save_as_png', title: 'PNG' },
+	{ id: 'save_as_jpg', title: 'JPG' },
+	{ id: 'save_as_webp', title: 'WEBP' },
+	{ id: 'save_as_avif', title: 'AVIF' },
+	{ id: 'save_as_gif', title: 'GIF (static)' },
+	{ id: 'save_as_pdf', title: 'PDF' },
+];
+
 // Create all menus unconditionally first
 function createContextMenu() {
-	chrome.contextMenus.removeAll(function () {
+	chrome.contextMenus.removeAll(() => {
 		chrome.contextMenus.create({
 			id: 'save_image_parent',
 			title: 'Save Image As...',
 			contexts: ['image'],
 		});
 
-		chrome.contextMenus.create({
-			id: 'save_as_png',
-			parentId: 'save_image_parent',
-			title: 'PNG',
-			contexts: ['image'],
-		});
-
-		chrome.contextMenus.create({
-			id: 'save_as_jpg',
-			parentId: 'save_image_parent',
-			title: 'JPG',
-			contexts: ['image'],
-		});
-
-		chrome.contextMenus.create({
-			id: 'save_as_webp',
-			parentId: 'save_image_parent',
-			title: 'WEBP',
-			contexts: ['image'],
-		});
-
-		chrome.contextMenus.create({
-			id: 'save_as_avif',
-			parentId: 'save_image_parent',
-			title: 'AVIF',
-			contexts: ['image'],
-		});
-
-		chrome.contextMenus.create({
-			id: 'save_as_gif',
-			parentId: 'save_image_parent',
-			title: 'GIF (static)',
-			contexts: ['image'],
-		});
-
-		chrome.contextMenus.create({
-			id: 'save_as_pdf',
-			parentId: 'save_image_parent',
-			title: 'PDF',
-			contexts: ['image'],
-		});
+		for (const item of CONTEXT_MENU_ITEMS) {
+			chrome.contextMenus.create({
+				...item,
+				parentId: 'save_image_parent',
+				contexts: ['image'],
+			});
+		}
 
 		// Check AVIF support after creating menus
 		checkAvifSupport();

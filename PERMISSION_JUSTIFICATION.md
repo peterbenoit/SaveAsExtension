@@ -1,0 +1,1 @@
+Permissions Justification: The Save Image As... extension requires broad host permissions (e.g., <all_urls>) to access images on any page. It is  necessary for this type of extension to save images from any website in different formats.
