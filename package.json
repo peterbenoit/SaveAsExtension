@@ -5,11 +5,15 @@
 	"private": true,
 	"license": "MIT",
 	"scripts": {
+		"postinstall": "node -e \"require('fs').cpSync('node_modules/jspdf/dist/jspdf.umd.min.js','lib/jspdf.umd.min.js')\"",
 		"test": "jest",
 		"test:coverage": "jest --coverage",
-		"package": "chmod +x package.sh && ./package.sh"
+		"package": "node package.js"
+	},
+	"dependencies": {
+		"jspdf": "^4.2.1"
 	},
 	"devDependencies": {
-		"jest": "^29.7.0"
+		"jest": "^30.3.0"
 	}
 }
