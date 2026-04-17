@@ -152,6 +152,18 @@ chrome.contextMenus.onClicked.addListener(function (info, tab) {
 });
 
 async function downloadImageForFrame(srcUrl, tabId, frameId, format) {
+	let parsedUrl;
+	try {
+		parsedUrl = new URL(srcUrl);
+	} catch {
+		console.error('[BACKGROUND] Invalid URL:', srcUrl);
+		return;
+	}
+	if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+		console.error('[BACKGROUND] Unsupported URL scheme:', parsedUrl.protocol);
+		return;
+	}
+
 	let filename = getFileNameFromURL(srcUrl, format);
 
 	console.info(`Download request: ${format} format for URL: ${srcUrl}`);
